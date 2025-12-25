@@ -1,0 +1,25 @@
+import numpy as np
+
+#маленькая прога в которой я пыталась понять как происходит определение тональности
+
+#тоника, большая терция (+4 полутонa), квинта (+7 полутонов) - мажор
+#тоника, малая терция (+3 полутона), квинта (+7 полутонов) - минор
+
+
+#freqs_peaks = [110, 138.6, 165]   # A major
+freqs_peaks = [110, 130.8, 165] # A minor
+
+def freq_to_midi(f): return 69 + 12 * np.log2(f / 440.0)
+
+notes = np.array([freq_to_midi(f) for f in freqs_peaks])
+notes = np.sort(np.round(notes))
+
+intervals = np.diff(notes) % 12
+print("Notes:", notes, "Intervals:", intervals)
+
+if np.array_equal(intervals, [4, 3]):
+    print(" Мажорный аккорд")
+elif np.array_equal(intervals, [3, 4]):
+    print(" Минорный аккорд")
+else:
+    print(" Другая структура")
