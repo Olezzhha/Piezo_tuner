@@ -1,0 +1,25 @@
+import serial
+import time
+
+PORT = "COM6"
+BAUDRATE = 500000
+FILE_NAME = "G.csv"
+
+def main():
+    print(f"Подключение к {PORT}...")
+    ser = serial.Serial(PORT, BAUDRATE)
+    print("Запись началась.\nДля остановки просто завершите программу.")
+
+    with open(FILE_NAME, "w") as f:
+        try:
+            while True:
+                line = ser.readline().decode("utf-8", errors="ignore").strip()
+                if line:
+                    f.write(line + "\n")
+        finally:
+            print("\nЗавершение записи...")
+            ser.close()
+            print("Файл сохранён:", FILE_NAME)
+
+if __name__ == "__main__":
+    main()
