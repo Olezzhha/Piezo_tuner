@@ -1,0 +1,205 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.loadtxt("C:\\Users\\Оля\\PycharmProjects\\Analog_to_Digital_converter_tuner\\.venv\\склад\\signal6str.csv")
+
+fs = 5000
+N = len(x)
+t = np.arange(N) / fs
+
+MIN_SAMPLES = 2048
+if N < MIN_SAMPLES:
+    print(f" Слишком мало сэмплов ({N}) для точного анализа!")
+    print("Рекомендуется записать более длинный сигнал")
+
+plt.figure(figsize=(12, 6))
+plt.plot(t, x)
+plt.title('Chord')
+plt.xlabel('Time, s'); plt.ylabel('Amplitude');
+plt.grid(True)
+
+
+guitar_tunings = {
+    "classic":[
+    (82.4, "6", "note E"),
+    (110.0, "5", "note A"),
+    (146.8, "4", "note d"),
+    (196.0, "3", "note g"),
+    (246.9, "2", "note b"),
+    (329.6, "1", "note e'")
+],
+    "dropE":[
+    (77.78, "6", "note E"),
+    (103.8, "5", "note A"),
+    (138.59, "4", "note d"),
+    (185.0, "3", "note g"),
+    (233.08, "2", "note b"),
+    (311.13, "1", "note e'")
+],
+    "dropD":[
+    (73.91, "6", "note E"),
+    (98.0, "5", "note A"),
+    (130.82, "4", "note d"),
+    (174.62, "3", "note g"),
+    (220.0, "2", "note b"),
+    (293.66, "1", "note e'")
+],
+    "dropC":[
+    (65.41, "6", "note E"),
+    (87.31, "5", "note A"),
+    (116.54, "4", "note d"),
+    (155.56, "3", "note g"),
+    (196.0, "2", "note b"),
+    (261.63, "1", "note e'")
+]
+}
+
+def amp_spectrum_for_plot(X):
+    N = len(X)
+    A = np.abs(X) / N
+    A[1:N//2] *= 2
+    return A[:N//2]
+
+def fourier_transform (x, fs, N, use_hps):
+    x_clean = x - np.mean(x)
+
+    X = np.fft.fft(x_clean)
+    freq = np.fft.fftfreq(N, 1 / fs)
+    amplitude_spectrum = abs(X)/N
+    half = N//2
+
+    freq_half = freq[:half]
+    ampl_half = amplitude_spectrum[:half]
+
+    main_idx = np.argmax(ampl_half[1:]) + 1
+    main_freq = freq_half[main_idx]
+    main_ampl = ampl_half[main_idx]
+    print(f"Основная гармоника: частота = {main_freq:.2f} Гц, амплитуда = {main_ampl:.2f}")
+
+    plt.figure(figsize = (10,8))
+    plt.subplot(2,1,1)
+    plt.stem(freq_half, ampl_half)
+    plt.title("Amplitude spectrum without window")
+    plt.xlabel("Frequency, Hz")
+    plt.ylabel("Amplitude")
+    plt.grid(True)
+
+    window = np.hamming(N)
+    x_windowed = x_clean * window
+    X_window = np.fft.fft(x_windowed)
+    amplitude_spectrum_window = abs(X_window) / N
+    ampl_half_window = amplitude_spectrum_window[:half]
+
+    main_idx_win = np.argmax(ampl_half_window[1:]) + 1
+    main_freq_win = freq_half[main_idx_win]
+    main_ampl_win = ampl_half_window[main_idx_win]
+    print(f"Основная гармоника with Hamming: частота = {main_freq_win:.2f} Гц, амплитуда = {main_ampl_win:.2f}")
+
+    plt.subplot(2,1,2)
+    plt.stem(freq_half,  ampl_half_window)
+    plt.title("Amplitude spectrum with Hamming window")
+    plt.xlabel("Frequency, Hz")
+    plt.ylabel("Amplitude")
+    plt.grid(True)
+
+    plt.tight_layout()
+
+
+    hps_freq = main_freq
+    if use_hps:
+        max_harmonic = 3
+        HPS = ampl_half.copy()
+
+        fig, axs = plt.subplots(max_harmonic, 1, figsize=(10, 10))
+        axs[0].plot(freq_half, ampl_half)
+        axs[0].set_title('Original Spectrum')
+        axs[0].set_xlim(0, 500)
+        axs[0].grid(True)
+
+        for k in range(2, max_harmonic + 1):
+            downsampled = ampl_half[::k]
+            HPS[:len(downsampled)] *= downsampled
+            axs[k - 1].plot(freq_half[:len(downsampled)], downsampled)
+            axs[k - 1].set_title(f'Downsampled Spectrum ×{k}')
+            axs[k - 1].set_xlim(0, 500)
+            axs[k - 1].grid(True)
+
+        plt.tight_layout()
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(freq_half, HPS)
+        plt.title('Harmonic Product Spectrum (HPS)')
+        plt.xlabel('Frequency, Hz')
+        plt.ylabel('Amplitude (product)')
+        plt.xlim(0, 500)
+        plt.grid(True)
+
+        fund_idx = np.argmax(HPS)
+        hps_freq = freq_half[fund_idx]
+        plt.axvline(hps_freq, color='r', linestyle='--', label=f'f₀ ≈ {hps_freq:.1f} Hz')
+        plt.legend()
+        plt.show()
+
+        print(f"Основная гармоника (HPS): частота = {hps_freq:.2f} Гц")
+
+    return hps_freq if use_hps else main_ampl_win
+
+detected_frequency = fourier_transform(x, fs, N, use_hps=True)
+
+
+
+
+detected_frequency = 120
+def select_tuning():
+    print("SELECT GUITAR TUNING:")
+    print("1. Classic")
+    print("2. Drop E")
+    print("3. Drop D")
+    print("4. Drop C")
+
+    while True:
+        try:
+            choice = input("Select tuning (1-4): ").strip()
+            if choice == "1":
+                return guitar_tunings["classic"], "Classic"
+            elif choice == "2":
+                return guitar_tunings["dropE"], "Drop E"
+            elif choice == "3":
+                return guitar_tunings["dropD"], "Drop D"
+            elif choice == "4":
+                return guitar_tunings["dropC"], "Drop C"
+            else:
+                print("Invalid choice! Please enter 1, 2, 3, or 4")
+        except KeyboardInterrupt:
+            print("\nExiting...")
+            exit()
+
+  
+  def string_definition_improved(freq, guitar_freq, tol):
+    closest_string = None
+    min_diff = float('inf')
+    for ideal_freq, num_string, note in guitar_freq:
+        diff = abs(freq - ideal_freq)
+        if diff < min_diff:
+            min_diff = diff
+            closest_string = (ideal_freq, num_string, note, diff)
+    ideal_freq, num_string, note, diff = closest_string
+
+    if freq < ideal_freq: tuning_advice = f"Tighten the peg to reach {note} ({ideal_freq} Hz)"
+    else: tuning_advice = f"Loosen the peg to reach {note} ({ideal_freq} Hz)"
+
+    if diff <= tol: return ideal_freq, num_string, note, diff, "Within tolerance", tuning_advice
+    else: return ideal_freq, num_string, note, diff, "Out of tolerance", tuning_advice
+
+chosen_guitar_system, tuning_name = select_tuning()
+print(f"\nSelected tuning: {tuning_name}")
+result = string_definition_improved(detected_frequency, chosen_guitar_system, tol=2.0)
+
+if result is not None:
+    ideal_freq, num_string, note, diff, status, tuning_advice = result
+    print(f"Measured frequency: {detected_frequency:.2f} Hz")
+    print(f"Closest string: {num_string} ({note})")
+    print(f"Reference frequency: {ideal_freq} Hz")
+    print(f"Difference: {diff:.2f} Hz")
+    print(f"Status: {status}")
+    print(f"Tuning advice: {tuning_advice}")
