@@ -1,0 +1,48 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+#применение HPS
+Fs = 10000
+T = 1.0
+N = int(Fs * T)
+t = np.linspace(0, T, N, endpoint=False)
+
+f0 = 196
+signal = (np.sin(2 * np.pi * f0 * t) +
+    0.6 * np.sin(2 * np.pi * 2*f0 * t) +
+    0.4 * np.sin(2 * np.pi * 3*f0 * t) +
+    0.3 * np.sin(2 * np.pi * 4*f0 * t))
+
+#вот тут 1 - слишком много
+signal += 1 * np.random.randn(N)
+
+X = np.abs(np.fft.rfft(signal))
+freqs = np.fft.rfftfreq(N, 1/Fs)
+
+max_harmonic = 4
+HPS = X.copy()
+
+fig, axs = plt.subplots(max_harmonic, 1, figsize=(10, 10))
+axs[0].plot(freqs, X)
+axs[0].set_title('Исходный спектр')
+axs[0].set_xlim(0, 500)
+
+for k in range(2, max_harmonic + 1):
+    downsampled = X[::k]
+    HPS[:len(downsampled)] *= downsampled
+    axs[k-1].plot(freqs[:len(downsampled)], downsampled)
+    axs[k-1].set_title(f'Сжатый спектр ×{k}')
+    axs[k-1].set_xlim(0, 500)
+
+plt.figure(figsize=(10, 4))
+plt.plot(freqs, HPS)
+plt.title('Harmonic Product Spectrum (HPS)')
+plt.xlabel('Частота, Гц')
+plt.ylabel('Амплитуда (произведение)')
+plt.xlim(0, 500)
+
+fund_idx = np.argmax(HPS)
+f_est = freqs[fund_idx]
+plt.axvline(f_est, color='r', linestyle='--', label=f'f₀ ≈ {f_est:.1f} Гц')
+plt.legend()
+plt.show()
