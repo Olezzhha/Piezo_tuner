@@ -1,0 +1,23 @@
+#include <Arduino.h>
+#include <driver/adc.h>
+
+const int Ts = 200;  // микросекунды → 5000 Гц
+unsigned long t_prev = 0;
+
+void setup() {
+  Serial.begin(500000);
+
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
+}
+
+void loop() {
+  unsigned long now = micros();
+
+  if (now - t_prev >= Ts) {
+    t_prev = now;
+
+    int value = adc1_get_raw(ADC1_CHANNEL_0);
+    Serial.println(value);
+  }
+}
